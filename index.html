@@ -2549,6 +2549,36 @@ footer img{width:44px;vertical-align:middle;margin-right:.3rem}
   #leaveBtn{padding:.5rem .8rem}
 }
 
+fieldset.qe{border:0;padding:0;margin:0;min-width:0}
+fieldset.qe:disabled .qe-card,fieldset.qe:disabled .qe-bottom,fieldset.qe:disabled .qe-import{opacity:.5}
+.qe-top{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.8rem}
+.qe-title{max-width:340px;font-weight:800}
+select{font-family:inherit;font-size:.95rem;padding:.6rem .8rem;border:1.5px solid var(--line);border-radius:12px;background:#fff;font-weight:700;color:var(--ink)}
+.qe-card{background:var(--bg);border:1.5px solid transparent;border-radius:14px;padding:.9rem 1rem;margin-bottom:.8rem}
+.qe-card.bad{border-color:#f2c4ca}
+.qe-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap}
+.qe-num{font-weight:900}
+.qe-time{padding:.35rem .6rem;font-size:.85rem}
+.qe-icon{background:#fff;border:1.5px solid var(--line);padding:.3rem .65rem;font-size:.82rem;border-radius:9px;color:var(--muted)}
+.qe-q{font-size:1.1rem;font-weight:800;margin-bottom:.6rem}
+.qe-answers{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.qe-ans{display:flex;align-items:center;background:#fff;border:2px solid var(--line);border-radius:12px;overflow:hidden}
+.qe-ans:focus-within{border-color:var(--accent)}
+.qe-ans.is-correct{border-color:var(--ok);background:#effaf4}
+.qe-shape{color:#fff;align-self:stretch;display:flex;align-items:center;justify-content:center;width:42px;font-size:1.05rem;flex-shrink:0}
+.qe-ans input{border:0!important;border-radius:0;padding:.7rem;background:transparent;min-width:0}
+.qe-correct{background:transparent;color:#a9a294;font-size:.8rem;padding:.4rem .7rem;white-space:nowrap;border-radius:0}
+.qe-correct:hover{color:var(--ok)}
+.qe-ans.is-correct .qe-correct{color:var(--ok)}
+.qe-warn{color:var(--brand);font-weight:700;font-size:.85rem;margin-top:.45rem}
+.qe-card:not(.bad) .qe-warn{display:none}
+.qe-bottom{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.qe-import{margin-top:.8rem;background:var(--bg);border-radius:12px;padding:.7rem 1rem}
+.qe-import summary{cursor:pointer;font-weight:800}
+.qe-import textarea{margin:.6rem 0;font-size:.92rem}
+.qe-lock{background:#fff6dc;border:1px solid #f1d78a;color:#7a5b00;border-radius:10px;padding:.5rem .8rem;font-weight:700;font-size:.9rem;margin-bottom:.7rem}
+@media (max-width:760px){.qe-answers{grid-template-columns:1fr}}
+
 footer{text-align:center;color:var(--muted);font-size:.85rem;padding:1rem}
 footer a{color:var(--muted)}
 
@@ -2625,19 +2655,7 @@ footer a{color:var(--muted)}
         <textarea id="pollInput" placeholder="One option per line" style="flex:1;min-width:220px"></textarea>
         <button id="savePollBtn" class="btn-ghost">Save options and clear votes</button>
       </div>
-      <div id="quizEditor" class="panel-row hidden" style="align-items:flex-start">
-        <label for="quizInput" style="padding-top:.6rem">Questions</label>
-        <div style="flex:1;min-width:260px">
-          <textarea id="quizInput" style="min-height:190px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92rem" placeholder="What is 3 x 4?&#10;- 7&#10;* 12&#10;- 34&#10;- 1&#10;&#10;Which animal is an amphibian? | 30&#10;- Snake&#10;* Frog&#10;- Turtle"></textarea>
-          <div class="small-note" style="margin-top:.35rem">One question per block, blank line between questions. Put * before the correct answer and - before the others (2 to 4 answers). Add | 30 after a question to give it 30 seconds.</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:.5rem;width:190px">
-          <label for="quizTime">Default seconds</label>
-          <input id="quizTime" type="number" min="5" max="240" value="20">
-          <button id="saveQuizBtn" class="btn-ghost">Save questions</button>
-          <span id="quizMsg" class="small-note"></span>
-        </div>
-      </div>
+      <div id="quizEditor" class="hidden" style="margin-top:.9rem"></div>
       <div class="panel-row">
         <label class="toggle" id="lockLabel"><input type="checkbox" id="lockToggle"> Pause responses</label>
         <label class="toggle" id="showLabel"><input type="checkbox" id="showToggle"> Students see results</label>
@@ -2848,8 +2866,8 @@ function onMeta(meta) {
   if (S.curAct !== meta.activity) {
     S.curAct = meta.activity;
     if (S.unsubData) S.unsubData();
-    S.data = null;
-    S.unsubData = Backend.on(roomPath(actById(meta.activity).path), d => { S.data = d; renderResults(); });
+    S.data = null; S.dataReady = false;
+    S.unsubData = Backend.on(roomPath(actById(meta.activity).path), d => { S.data = d; S.dataReady = true; renderResults(); });
     $("studentInput").dataset.built = "";
   }
   if (S.host) renderTeacherPanel();
@@ -3181,14 +3199,6 @@ function quizRanking(Q) {
 }
 const qTimeLeft = (Q, item) => Math.max(0, Math.ceil(item.time - (serverNow() - (Q.startAt || serverNow())) / 1000));
 
-$("saveQuizBtn").onclick = async () => {
-  const def = Math.min(240, Math.max(5, +$("quizTime").value || 20));
-  const { set, errs } = parseQuiz($("quizInput").value, def);
-  if (errs.length) { $("quizMsg").style.color = "var(--brand)"; $("quizMsg").textContent = errs[0]; return; }
-  if (!set.length) { $("quizMsg").style.color = "var(--brand)"; $("quizMsg").textContent = "Add at least one question."; return; }
-  await Backend.update(roomPath("quiz"), { set, defTime: def });
-  $("quizMsg").style.color = "var(--ok)"; $("quizMsg").textContent = set.length + (set.length === 1 ? " question saved" : " questions saved");
-};
 
 async function quizReset(keepPlayers) {
   const upd = { state: "lobby", index: 0, startAt: null, answers: null };
@@ -3244,11 +3254,11 @@ function renderQuiz(r) {
 
 function renderQuizHost(r, Q) {
   const set = Q.set || [];
-  if (document.activeElement !== $("quizInput")) $("quizInput").value = quizToText(set, Q.defTime || 20);
-  if (Q.defTime && document.activeElement !== $("quizTime")) $("quizTime").value = Q.defTime;
   const players = quizRanking(Q);
   const state = Q.state || "lobby";
-  if (!set.length) { r.appendChild(emptyState("Type your questions in the panel above and press Save questions.", "point")); return; }
+  if (S.dataReady) qeInit(Q);
+  qeLock(["question", "reveal", "board"].includes(state));
+  if (!set.length) { r.appendChild(emptyState("Add your questions in the editor above. A question is ready once it has text, two answers, and a correct answer.", "point")); return; }
 
   if (state === "lobby") {
     const c = el("div", "qz-center");
@@ -3374,6 +3384,196 @@ function renderQuizPlayer(r, Q) {
   }
   if (state === "board") { center("gift", rank === 1 ? "You're in first place!" : "Place " + rank, scoreLine, "Look at the main screen."); return; }
   if (state === "final") { center(rank && rank <= 3 ? "cheer" : "hug", rank === 1 ? "You won!" : rank && rank <= 3 ? "Top 3!" : "Great job!", "Final score " + (me.score || 0), rank ? "Place " + rank + " of " + ranking.length : ""); }
+}
+
+
+/* ===================== Quiz editor ===================== */
+const QE = { room: null, title: "", items: [], saveT: null };
+const TIMES = [5, 10, 15, 20, 30, 45, 60, 90, 120];
+const snapTime = t => TIMES.reduce((a, b) => Math.abs(b - t) < Math.abs(a - t) ? b : a, 20);
+const blankItem = () => ({ q: "", options: ["", "", "", ""], correct: -1, time: 20 });
+function normItem(it) {
+  const o = (it.options || []).slice(0, 4).map(x => x == null ? "" : String(x)); while (o.length < 4) o.push("");
+  return { q: it.q ? String(it.q) : "", options: o, correct: Number.isInteger(it.correct) && it.correct >= 0 && it.correct < 4 ? it.correct : -1, time: snapTime(+it.time || 20) };
+}
+const qeLib = () => { try { return JSON.parse(store.get("classlive_quizzes")) || {}; } catch (e) { return {}; } };
+const qeLibSave = lib => store.set("classlive_quizzes", JSON.stringify(lib));
+const qeHasContent = it => it.q.trim() || it.options.some(o => o.trim());
+function qeIssue(it) {
+  if (!it.q.trim()) return "Type a question.";
+  if (it.options.filter(o => o.trim()).length < 2) return "Add at least two answers.";
+  if (it.correct < 0 || !it.options[it.correct] || !it.options[it.correct].trim()) return "Click Correct? next to the right answer.";
+  return "";
+}
+function qeValidSet() {
+  return QE.items.filter(it => !qeIssue(it)).map(it => {
+    const opts = [], map = {};
+    it.options.forEach((o, k) => { if (o.trim()) { map[k] = opts.length; opts.push(o.trim()); } });
+    return { q: it.q.trim(), options: opts, correct: map[it.correct], time: it.time };
+  });
+}
+function qeInit(Q) {
+  if (QE.room === S.code) return;
+  QE.room = S.code;
+  const d = Q && Q.draft;
+  if (d && d.items) { QE.title = d.title || ""; QE.items = Object.values(d.items).map(normItem); }
+  else if (Q && Q.set && Q.set.length) { QE.title = ""; QE.items = Q.set.map(normItem); }
+  else { QE.title = ""; QE.items = [blankItem()]; }
+  qeBuild();
+}
+function qeLock(on) {
+  const f = $("qeFieldset"); if (!f) return;
+  f.disabled = on; $("qeLockNote").classList.toggle("hidden", !on);
+}
+function qeQueue() { const st = $("qeStatus"); if (st) st.textContent = "Saving..."; clearTimeout(QE.saveT); QE.saveT = setTimeout(qeSave, 600); }
+async function qeSave() {
+  clearTimeout(QE.saveT);
+  const set = qeValidSet();
+  await Backend.update(roomPath("quiz"), { set, draft: { title: QE.title, items: QE.items } });
+  const t = QE.title.trim();
+  if (t) { const lib = qeLib(); lib[t] = { items: QE.items, saved: Date.now() }; qeLibSave(lib); }
+  const bad = QE.items.filter(it => qeHasContent(it) && qeIssue(it)).length;
+  const st = $("qeStatus");
+  if (st) st.textContent = set.length + (set.length === 1 ? " question ready" : " questions ready") + (bad ? ", " + bad + " need attention" : "") + (t ? ". Saved in this browser." : ". Add a title to keep it for next time.");
+}
+function qeMove(i, d) { const j = i + d; if (j < 0 || j >= QE.items.length) return; [QE.items[i], QE.items[j]] = [QE.items[j], QE.items[i]]; qeBuild(); qeSave(); }
+function qeAdd(items) {
+  QE.items = QE.items.filter(qeHasContent).concat(items);
+  if (!QE.items.length) QE.items.push(blankItem());
+  qeBuild(); qeSave();
+}
+
+function parseCSV(t) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (q) { if (ch === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ",") { row.push(f); f = ""; }
+    else if (ch === "\n") { row.push(f); rows.push(row); row = []; f = ""; }
+    else if (ch !== "\r") f += ch;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+function qeFromRows(rows) {
+  const out = [];
+  rows.forEach((r, ri) => {
+    r = r.map(x => (x || "").trim());
+    if (!r[0]) return;
+    if (ri === 0 && /^question/i.test(r[0])) return;
+    const opts = r.slice(1, 5), c = r[5] || "";
+    let ci = -1;
+    if (/^[1-4]$/.test(c)) ci = +c - 1;
+    else if (/^[a-d]$/i.test(c)) ci = c.toUpperCase().charCodeAt(0) - 65;
+    else if (c) ci = opts.findIndex(o => o.toLowerCase() === c.toLowerCase());
+    out.push(normItem({ q: r[0], options: opts, correct: ci, time: +r[6] || 20 }));
+  });
+  return out;
+}
+function qeParseAny(text, kind) {
+  text = (text || "").replace(/\r/g, "");
+  if (!text.trim()) return [];
+  if (kind === "json") { try { const d = JSON.parse(text); return (d.items || d).map(normItem); } catch (e) { return []; } }
+  if (kind === "csv") return qeFromRows(parseCSV(text));
+  if (text.includes("\t")) return qeFromRows(text.split("\n").map(l => l.split("\t")));
+  return parseQuiz(text, 20).set.map(normItem);
+}
+
+function qeCard(it, i) {
+  const c = el("div", "qe-card");
+  const h = el("div", "qe-head");
+  h.appendChild(el("span", "qe-num", "Question " + (i + 1)));
+  const ts = el("select", "qe-time"); TIMES.forEach(t => ts.appendChild(new Option(t + " seconds", t))); ts.value = it.time;
+  ts.onchange = () => { it.time = +ts.value; qeQueue(); };
+  h.append(ts, el("div", "spacer"));
+  const mk = (lbl, title, fn, dis) => { const b = el("button", "qe-icon", lbl); b.type = "button"; b.title = title; b.disabled = !!dis; b.onclick = fn; return b; };
+  h.append(
+    mk("↑", "Move up", () => qeMove(i, -1), i === 0),
+    mk("↓", "Move down", () => qeMove(i, 1), i === QE.items.length - 1),
+    mk("Copy", "Duplicate this question", () => { QE.items.splice(i + 1, 0, JSON.parse(JSON.stringify(it))); qeBuild(); qeSave(); }),
+    mk("Delete", "Delete this question", () => { if (qeHasContent(it) && !confirm("Delete question " + (i + 1) + "?")) return; QE.items.splice(i, 1); if (!QE.items.length) QE.items.push(blankItem()); qeBuild(); qeSave(); })
+  );
+  c.appendChild(h);
+  const q = el("input", "qe-q"); q.type = "text"; q.maxLength = 200; q.placeholder = "Type your question"; q.value = it.q;
+  q.oninput = () => { it.q = q.value; qeQueue(); upd(); };
+  c.appendChild(q);
+  const g = el("div", "qe-answers"), rows = [];
+  it.options.forEach((o, k) => {
+    const row = el("div", "qe-ans");
+    const sh = el("span", "qe-shape", QSHAPES[k]); sh.style.background = QCOLORS[k];
+    const inp = el("input"); inp.type = "text"; inp.maxLength = 120; inp.placeholder = "Answer " + (k + 1) + (k > 1 ? " (optional)" : ""); inp.value = o;
+    inp.oninput = () => { it.options[k] = inp.value; qeQueue(); upd(); };
+    const cb = el("button", "qe-correct"); cb.type = "button"; cb.title = "Mark as the correct answer";
+    cb.onclick = () => { it.correct = k; qeQueue(); upd(); };
+    row.append(sh, inp, cb); g.appendChild(row); rows.push({ row, cb });
+  });
+  c.appendChild(g);
+  const warn = el("div", "qe-warn"); c.appendChild(warn);
+  function upd() {
+    rows.forEach(({ row, cb }, k) => { const on = it.correct === k; row.classList.toggle("is-correct", on); cb.textContent = on ? "✓ Correct" : "Correct?"; });
+    const iss = qeIssue(it); warn.textContent = iss; c.classList.toggle("bad", !!iss && !!qeHasContent(it));
+  }
+  upd();
+  return c;
+}
+
+function qeBuild() {
+  const box = $("quizEditor"); box.innerHTML = "";
+  const fs = el("fieldset", "qe"); fs.id = "qeFieldset";
+  const lock = el("div", "qe-lock hidden", "The quiz is running, so editing is paused. Finish the quiz or press Clear this activity to edit again."); lock.id = "qeLockNote";
+  fs.appendChild(lock);
+  const top = el("div", "qe-top");
+  const title = el("input", "qe-title"); title.type = "text"; title.maxLength = 60; title.placeholder = "Quiz title, e.g. Amphibians review"; title.value = QE.title;
+  title.oninput = () => { QE.title = title.value; qeQueue(); };
+  const lib = qeLib(), sel = el("select");
+  sel.appendChild(new Option("Open a saved quiz", ""));
+  Object.keys(lib).sort().forEach(t => sel.appendChild(new Option(t + " (" + Object.keys(lib[t].items || {}).length + ")", t)));
+  sel.onchange = () => {
+    const t = sel.value; if (!t) return;
+    if (QE.items.some(qeHasContent) && t !== QE.title && !confirm('Replace the current questions with "' + t + '"?')) { sel.value = ""; return; }
+    QE.title = t; QE.items = Object.values(lib[t].items).map(normItem); qeBuild(); qeSave();
+  };
+  const status = el("span", "small-note"); status.id = "qeStatus";
+  top.append(title, sel, el("div", "spacer"), status);
+  fs.appendChild(top);
+  QE.items.forEach((it, i) => fs.appendChild(qeCard(it, i)));
+
+  const bot = el("div", "qe-bottom");
+  const add = qBtn("+ Add question", () => { QE.items.push(blankItem()); qeBuild(); qeSave(); const qs = $("quizEditor").querySelectorAll(".qe-q"); qs[qs.length - 1].focus(); });
+  const dl = qBtn("Download quiz file", () => {
+    const blob = new Blob([JSON.stringify({ app: "ClassLive", title: QE.title, items: QE.items }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (QE.title.trim() || "quiz").replace(/[^\w\- ]+/g, "") + ".json"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, "btn-ghost");
+  const fileIn = el("input"); fileIn.type = "file"; fileIn.accept = ".json,.csv,.tsv,.txt"; fileIn.className = "hidden";
+  fileIn.onchange = () => {
+    const f = fileIn.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const ext = (f.name.split(".").pop() || "").toLowerCase();
+      const items = qeParseAny(rd.result, ext === "json" ? "json" : ext === "csv" ? "csv" : "");
+      if (!items.length) { alert("No questions were found in that file."); return; }
+      if (ext === "json") { try { const t = JSON.parse(rd.result).title; if (t && !QE.title) QE.title = t; } catch (e) {} }
+      qeAdd(items); flashSent(items.length + " questions added");
+    };
+    rd.readAsText(f); fileIn.value = "";
+  };
+  const op = qBtn("Open quiz file", () => fileIn.click(), "btn-ghost");
+  bot.append(add, dl, op, fileIn);
+  fs.appendChild(bot);
+
+  const imp = el("details", "qe-import");
+  imp.appendChild(el("summary", null, "Paste questions from Google Sheets or Excel"));
+  imp.appendChild(el("div", "small-note", "Copy rows with these columns: Question, Answer 1, Answer 2, Answer 3, Answer 4, Correct answer number (1 to 4), Seconds (optional). A header row is fine."));
+  const ta = el("textarea"); ta.rows = 5; ta.placeholder = "Paste here";
+  imp.append(ta, qBtn("Add these questions", () => {
+    const items = qeParseAny(ta.value, "");
+    if (!items.length) { alert("No questions found. Check that each row has a question and at least two answers."); return; }
+    qeAdd(items); ta.value = ""; imp.open = false; flashSent(items.length + " questions added");
+  }));
+  fs.appendChild(imp);
+  box.appendChild(fs);
+  qeSave();
 }
 
 /* ===================== Export ===================== */
