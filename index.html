@@ -2682,8 +2682,10 @@ async function joinRoom(raw) {
   const code = (raw || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
   $("joinErr").textContent = "";
   if (code.length < 4) { $("joinErr").textContent = "Please enter the room code."; return; }
-  const meta = await Backend.get("rooms/" + code + "/meta");
-  if (!meta) { $("joinErr").textContent = "Room not found. Check the code and try again."; return; }
+  let meta;
+  try { meta = await Backend.get("rooms/" + code + "/meta"); }
+  catch (e) { $("joinErr").textContent = "Could not reach the database (" + (e && e.message || e) + "). Check the Firebase rules and databaseURL."; return; }
+  if (!meta) { $("joinErr").textContent = Backend.mode === "demo" ? "Room not found. This page is still in demo mode, so rooms only exist in the browser that created them. Add the Firebase config to share rooms across devices." : "Room not found. Check the code and try again."; return; }
   enterRoom(code, null);
 }
 
